@@ -1,31 +1,25 @@
-let socket = io.connect(window.location.origin);
+/*
+Adapted from Pitch Painting Sketch - Pitch Detection Painting
+by AndreasRef
+Built with pitchDetection model from ml5js and p5js
+Created by Andreas Refsgaard 2020 and from https://editor.p5js.org/kchung/sketches/Hy9rk2-8X
+*/
 
-//Globals pulsating circle
-let radius = 100;
-let maxRadius = 300;
-let minRadius = 100;
-let nextRadius = 8;
-let growing = true;
-let users = [];
-
-// can use FOR AUDIO FILE PRELOAD
-//function preload() {
-//   source = loadImage('puzzle1.JPG');
-// }
-
-
-//Globals color paths
-
-let vol = 0.0;
+let vol = 5.0;
 let mic;
 let pitch;
 let audioContext;
+let song; //song for the pulsating circle
+//preload the song
+function preload() {
+  song = loadSound('unchained.MP3'); 
+}
 
 let angle=0;// initialize angle variable
 let scalarX;
 let scalarY;
-let startX = 200;	// set the x-coordinate for the circle center
-let startY = 200;	// set the y-coordinate for the circle center
+let startX;	// set the x-coordinate for the circle center
+let startY;	// set the y-coordinate for the circle center
 
 const model_url = 'https://cdn.jsdelivr.net/gh/ml5js/ml5-data-and-models/models/pitch-detection/crepe/';
 
@@ -39,25 +33,51 @@ let colors = [];
 let colorSelect = [];
 let scalar = 80; //set scalar for the size of ellipses
 
-
-///////////////////////////////SET UP OF THE CHOIR PAGe////////////////////
+//central pulsating circle globals here
+let radius = 100;
+let maxRadius = 270;
+let minRadius = 90;
+let nextRadius = 8;
+let growing = true;
 
 
 function setup() {
-  createCanvas(windowWidth, windowHeight);
-  background(255, 100);
-  angleMode(DEGREES); // Change the angle mode from radians to degrees
+    createCanvas(windowWidth, windowHeight);
+    background(0, 255);
+    angleMode(DEGREES); // Change the angle mode from radians to degrees
   
+// Create a button
+  let button = createButton('Paint the Melody!');
+  button.position(windowWidth/2 - button.width/2, windowHeight - 40);
+  button.mousePressed(startMusic);
+  button.style('background-color', '#333'); // Dark grey background
+  button.style('color', '#CCC'); // Light grey text
+  button.style('padding', '10px 20px');
+  button.style('border', 'none');
+  button.style('font-size', '16px');
+  
+  
+  //assign user a random path direction and scale
   angle = random(300, 920);
-  scalarX = random(150, 350);
-  scalarY = scalarX;
+  scalarX = random(270, 300);
+  scalarY = scalarX; //because it's a circle
+  
+  //assign user a random alpha value for their path
   a = random(0, 150);
+  
+  // Create an amplitude object for the song
+  songAmplitude = new p5.Amplitude();
+  songAmplitude.setInput(song);
+  
+  //center of pulsating circle
+  startX = windowWidth/2;
+  startY = windowHeight/2;
 
  audioContext = getAudioContext();
   mic = new p5.AudioIn();
   mic.start(startPitch);
 
-  // Define the color palette according to the provided color associations -- a mixture of primary colors, secondary colors -- and tertiary (with some )
+  //Array containing three arrays, user is assigned one color palette that corresponds to their changing pitches
 colorArray = [
   [
     color(217, 245, 219, a),     // C light green
@@ -105,17 +125,19 @@ colorArray = [
   ]
   ];
 
-  // colors = getRandomColor();
-  console.log(colors);
+  colors = getRandomColor();
   
+  //make the ellipses that start appearing while the color-assigning code is still loading very light and not white
   noStroke();
   fill(185, 234, 205,5);
-  // let colorSelect = [];
-  //  colorSelect = colorArrayrandom(colorArray);
 }
 
+// Function to handle button press and start music
+function startMusic() {
+  if (!song.isPlaying()) {
+    song.play();}
+}
 
-//functions section
 function startPitch() {
   pitch = ml5.pitchDetection(model_url, audioContext , mic.stream, modelLoaded);
 }
@@ -126,42 +148,40 @@ function modelLoaded() {
   getPitch();
 }
 
-function getPitch() {
-  pitch.getPitch(function(err, frequency) {
-    if (frequency) {
-      let midiNum = freqToMidi(frequency);
-      currentNote = scale[midiNum % 12];
-      fill(colors[midiNum % 12]);
-      // let colorSelect = random(colorArray);
-      //fill(colorSelect[midiNum % 12]); 
-      //i want to select which array im referring to before i get to this fill, when setup hits
-      //the getPitch function is called 
-      select('#noteAndVolume').html('Note: ' + currentNote + " - volume " + nf(vol,1,2));
-    }
-    getPitch();
-  })
-
-}
-//Draw Loop
+//Draw on the canvas
 function draw() {
-  //Pulsating Central Circle
-    //background(0, random(0, 30));
-//   fill(random(60, 160), random(200, 235), random(25, 85), random(5, 20));
-//   noStroke();
-//   ellipse(windowWidth / 2, windowHeight / 2, radius);
+  background(0, 0);
+  //Use the volume from the microphone to control the size
+  vol = mic.getLevel();
+ 
+  //x position of ellipse, slight variation to create digital brush effect
+    let x = (startX+random(3,10)) + (scalarX * sin(angle));
+  //y position of ellipse
+  let y = (startY+random(3,10)) + (scalarY * cos(angle));
 
-//   fill(random(180, 210), random(60, 160), random(40, 65), random(0, 10));
-//   noStroke();
-//   ellipse(windowWidth / 2, windowHeight / 2, radius - 70);
+  // Draw the ellipse at the calculated position, size corresponds to user's volume
+  ellipse(x+(vol*100), y+(vol*100), vol*500);
 
-//   fill(random(120, 160), random(210, 240), random(140, 165), random(0, 15));
-//   noStroke();
-//   ellipse(windowWidth / 2, windowHeight / 2, radius - 100);
+  angle++;	// increment angle for the next frame
   
-fill(255, random(0, 15)); //write a function for the fills or else all white
-  noStroke();
-  ellipse(windowWidth / 2, windowHeight / 2, radius);
+   // Use the song's amplitude for the pulsating circle
+  let songVol = songAmplitude.getLevel();
+  
+  //central pulsating circle, made of many ellipses
+    drawEllipse(60, 160, 200, 235, 25, 85, 0, 40, windowWidth / 2, windowHeight / 2, radius);
 
+  drawEllipse(120, 160, 100, 210, 50, 95, 50, 80, windowWidth / 2, windowHeight / 2, radius - 50);
+  
+  drawEllipse(80, 110, 90, 180, 40, 65, 50, 100, windowWidth / 2, windowHeight / 2, radius - 90);
+   
+  drawEllipse(120, 160, 210, 240, 140, 165, 100, 180,windowWidth / 2, windowHeight / 2, radius - 100);
+  
+    drawEllipse(120, 160, 210, 240, 140, 165, 100, 250,windowWidth / 2, windowHeight / 2, radius - 170);
+  
+  //black ellipse to erase underneath color layers
+  drawEllipse(0, 0, 0, 0, 0, 0, 100, 255, windowWidth / 2, windowHeight / 2, radius);
+
+  //make them expand and contract rhythmically
   if (growing) {
     radius += nextRadius;
   } else {
@@ -171,33 +191,33 @@ fill(255, random(0, 15)); //write a function for the fills or else all white
   if (radius <= minRadius || radius >= maxRadius) {
     growing = !growing;
   }
-  minRadius = random(100, 115);
-  maxRadius = random(285, 300);
-
-users.forEach((user, index) =>{
-  let  vol = mic.getLevel();
-  let angleOffset = index * 10; // Just an example offset for each user to separate ellipses
-  let currentAngle = angle + angleOffset;
-  let x = width / 2 + cos(currentAngle) * scalarX * vol * 5;
-  let y = height / 2 + sin(currentAngle) * scalarY * vol * 5;
-  fill(user.color); // Use the user's color
-    ellipse(x, y, vol * 500); // Draw the ellipse with size based on volume
-  });
-//Color Path
-  //Use the volume from the microphone to control the size
- // The angle for each note will be updated when a new pitch is detected
-  // let x = width / 2 + cos(angle) * scalar * vol * 5;
-  // let y = height / 2 + sin(angle) * scalar * vol * 5;
   
-    var x = (width/2+random(3,10)) + (scalarX * sin(angle));
-  var y = (width/2+random(3,10)) + (scalarY * cos(angle));
-
-  // Draw the ellipse at the calculated position
-  ellipse(x+(vol*100), y+(vol*100), vol*500); // The size can be adjusted or mapped to volume as well
-
-  angle++;	// increment angle for the next frame
-  
+  //randomize a bit more, can delete this, only slight aesthetic difference
+  minRadius = random(90, 105);
+  maxRadius = random(235, 260);
 }
+function getPitch() {
+  pitch.getPitch(function(err, frequency) {
+    if (frequency) {
+      let midiNum = freqToMidi(frequency);
+      currentNote = scale[midiNum % 12];
+      fill(colors[midiNum % 12]); //mapping color of each ellipse, from specific palette assigned in setup, to pitch
+      select('#noteAndVolume').html('Note: ' + currentNote + " - volume " + nf(vol,1,2));
+    }
+    getPitch();
+  })
+}
+
+//function to pick a color palette to assign to the user, assigned once at the start in setup function
+function getRandomColor() {
+  return random(colorArray);
+}
+
+//function to draw central pulsating ellipses
+function drawEllipse(r1, r2, g1, g2, b1, b2, a1, a2, x, y, rad) {
+  fill(random(r1, r2), random(g1, g2), random(b1, b2), random(a1, a2));
+  noStroke();
+  ellipse(x, y, rad);}
   //////////////////SOCKET FOR SERVER SIDE ///////////////////////
 // Emit the move to the server
 
